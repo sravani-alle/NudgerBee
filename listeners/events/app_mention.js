@@ -38,10 +38,13 @@ export const appMentionCallback = async ({ event, client, logger, say }) => {
       thread_ts: thread_ts,
     });
 
+    // Strip mention markup (e.g. "<@U123>") so the model sees a clean prompt
+    const cleanedText = text.replace(/<@[A-Z0-9]+>/g, '').trim();
+
     const prompts = [
       {
         role: 'user',
-        content: text,
+        content: cleanedText,
       },
     ];
 

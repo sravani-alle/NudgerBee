@@ -1,7 +1,9 @@
 {
   "$schema": "https://raw.githubusercontent.com/slackapi/manifest-schema/main/manifest.schema.json",
   "display_information": {
-    "name": "Bolt JS AI Agent"
+    "name": "Nudger Bee",
+    "description": "Matches Hivemates into peer cohorts, runs personality nudges, and helps Hive Keepers see who has gone dormant.",
+    "background_color": "#F5B700"
   },
   "features": {
     "app_home": {
@@ -10,11 +12,11 @@
       "messages_tab_read_only_enabled": false
     },
     "bot_user": {
-      "display_name": "Bolt JS AI Agent",
-      "always_online": false
+      "display_name": "Nudger Bee",
+      "always_online": true
     },
     "assistant_view": {
-      "assistant_description": "An AI Agent built with Bolt for JavaScript, at your service!",
+      "assistant_description": "Nudger Bee 🐝 — your community-health coordinator inside Slack.",
       "suggested_prompts": []
     }
   },
@@ -25,9 +27,14 @@
         "assistant:write",
         "channels:history",
         "channels:join",
+        "channels:read",
         "chat:write",
+        "commands",
+        "groups:history",
+        "groups:write",
         "im:history",
-        "groups:history"
+        "im:write",
+        "users:read"
       ]
     }
   },
@@ -37,11 +44,12 @@
         "app_mention",
         "assistant_thread_context_changed",
         "assistant_thread_started",
+        "member_joined_channel",
         "message.im"
       ]
     },
     "interactivity": {
-      "is_enabled": false
+      "is_enabled": true
     },
     "org_deploy_enabled": true,
     "socket_mode_enabled": true,
