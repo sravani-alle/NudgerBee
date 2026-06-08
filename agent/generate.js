@@ -44,6 +44,7 @@ export async function generateMessage(messages, { systemPrompt = BASE_SYSTEM_PRO
         tool_calls: msg.tool_calls,
       });
       for (const tc of msg.tool_calls) {
+        if (tc.type !== 'function') continue;
         const tool = toolMap.get(tc.function.name);
         let args = {};
         try {

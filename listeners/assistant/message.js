@@ -1,4 +1,7 @@
 import { callLLM } from '../../agent/llm-caller.js';
+import { kvGet } from '../../db/repos/kv.js';
+import { prepareHivemateTurn, toChatMessages } from '../../services/dm-turn.js';
+import { runMatching } from '../../services/matching.js';
 import { feedbackBlock } from '../views/feedback_block.js';
 
 /** @param {number} ms */
@@ -34,6 +37,7 @@ export const message = async ({ client, context, logger, message, say, setStatus
   try {
     const { channel, thread_ts } = message;
     const { userId, teamId } = context;
+    if (!channel || !userId) return;
 
     // The first example shows a message with thinking steps that has different chunks to construct and update a plan alongside text outputs.
     if (message.text === 'Wonder a few deep thoughts.') {
@@ -132,7 +136,8 @@ export const message = async ({ client, context, logger, message, say, setStatus
         blocks: [feedbackBlock],
       });
     } else {
-      // This second example shows a generated text response for the provided prompt
+      // Real DM turn. This is the primary onboarding surface: with the Assistant
+      // feature enabled, Hivemate DMs land in this handler (not message.im).
       await setStatus({
         status: 'thinking...',
         loading_messages: [
@@ -144,22 +149,43 @@ export const message = async ({ client, context, logger, message, say, setStatus
         ],
       });
 
+      const effectiveTeamId = teamId || kvGet('team_id') || '';
+      if (!effectiveTeamId) {
+        logger.warn('assistant message without a resolvable team id; skipping');
+        return;
+      }
+      const botUserId = kvGet('bot_user_id');
+
+      // Pull the assistant thread so the LLM has the conversation so far.
+      /** @type {any[]} */
+      let history = [];
+      try {
+        const resp = await client.conversations.replies({ channel, ts: thread_ts, limit: 20 });
+        history = resp.messages ?? [];
+      } catch (e) {
+        logger.warn(`conversations.replies failed (${e}); using current message only`);
+        history = [{ user: userId, text: message.text, ts: thread_ts }];
+      }
+
+      const messages = toChatMessages(history, { botUserId });
+      const userTexts = messages.filter((m) => m.role === 'user').map((m) => m.content);
+      const { systemPrompt, tools } = prepareHivemateTurn({
+        userId,
+        teamId: effectiveTeamId,
+        recentUserTexts: userTexts,
+        client,
+        onComplete: () => runMatching({ client, userId, teamId: effectiveTeamId, logger }),
+      });
+
       const streamer = client.chatStream({
         channel: channel,
-        recipient_team_id: teamId,
+        recipient_team_id: effectiveTeamId,
         recipient_user_id: userId,
         thread_ts: thread_ts,
         task_display_mode: 'timeline',
       });
 
-      const prompts = [
-        {
-          role: 'user',
-          content: message.text,
-        },
-      ];
-
-      await callLLM(streamer, prompts);
+      await callLLM(streamer, messages, systemPrompt ? { systemPrompt, tools } : { tools });
       await streamer.stop({ blocks: [feedbackBlock] });
     }
   } catch (e) {

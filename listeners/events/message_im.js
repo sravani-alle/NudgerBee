@@ -1,14 +1,17 @@
 import { callLLM } from '../../agent/llm-caller.js';
-import { buildOnboardingPrompt, REQUIRED_SLOTS } from '../../agent/prompts/onboarding.js';
-import { makeProfileTools } from '../../agent/tools/profile.js';
-import { getHivemate, setOnboardingState, touchActive, upsertHivemate } from '../../db/repos/hivemates.js';
 import { kvGet } from '../../db/repos/kv.js';
-import { getMissingSlots, listSlots } from '../../db/repos/slots.js';
+import { prepareHivemateTurn, toChatMessages } from '../../services/dm-turn.js';
+import { runMatching } from '../../services/matching.js';
 import { feedbackBlock } from '../views/feedback_block.js';
 
 /**
- * Handles direct messages to the bot (`message.im` events).
- * Routes the Hivemate through onboarding while `onboarding_state !== 'complete'`.
+ * Handles plain direct messages to the bot (`message.im` events).
+ *
+ * NOTE: with the Assistant feature enabled, Hivemate DMs are routed through the
+ * Assistant container and handled in `listeners/assistant/message.js` — that is
+ * the primary onboarding surface. This handler is the fallback for any DM that
+ * arrives as a plain `message.im` (no assistant thread) and shares the same
+ * onboarding logic via `prepareHivemateTurn`.
  *
  * @param {Object} params
  * @param {any} params.event
@@ -28,22 +31,11 @@ export const messageImCallback = async ({ event, client, logger }) => {
 
     const userId = event.user;
     const channel = event.channel;
-    const teamId = event.team || event.team_id || '';
+    const teamId = event.team || event.team_id || kvGet('team_id') || '';
     if (!teamId) {
       logger.warn(`message.im without team id for user ${userId}; skipping`);
       return;
     }
-
-    upsertHivemate({ userId, teamId });
-    const hivemate = getHivemate(userId);
-    if (!hivemate) {
-      logger.error(`upsertHivemate produced no row for ${userId}`);
-      return;
-    }
-    if (hivemate.onboarding_state === 'new') {
-      setOnboardingState(userId, 'in_progress');
-    }
-    touchActive(userId);
 
     // Load recent DM history so the LLM has context across turns.
     /** @type {any[]} */
@@ -56,28 +48,18 @@ export const messageImCallback = async ({ event, client, logger }) => {
       history = [{ user: userId, text: event.text || '', ts: event.ts }];
     }
 
-    const messages = history
-      .filter((m) => !m.subtype)
-      .map((m) => ({
-        role: m.bot_id || (botUserId && m.user === botUserId) ? 'assistant' : 'user',
-        content: m.text || '',
-      }))
-      .filter((m) => m.content.length > 0);
+    const messages = toChatMessages(history, { botUserId });
+    const userTexts = messages.filter((m) => m.role === 'user').map((m) => m.content);
 
-    // Onboarding mode while incomplete; otherwise use the base persona with no tools.
-    const isComplete = hivemate.onboarding_state === 'complete';
-    let systemPrompt;
-    /** @type {import('../../agent/llm-caller.js').BeeTool[]} */
-    let tools;
-    if (isComplete) {
-      systemPrompt = undefined;
-      tools = [];
-    } else {
-      const filledSlots = listSlots(userId);
-      const missingSlots = getMissingSlots(userId, REQUIRED_SLOTS);
-      systemPrompt = buildOnboardingPrompt({ filledSlots, missingSlots });
-      tools = makeProfileTools(userId);
-    }
+    // Ensure the row exists, advance state, detect language, and pick the
+    // onboarding prompt + tools — shared with the Assistant surface.
+    const { systemPrompt, tools } = prepareHivemateTurn({
+      userId,
+      teamId,
+      recentUserTexts: userTexts,
+      client,
+      onComplete: () => runMatching({ client, userId, teamId, logger }),
+    });
 
     const streamer = client.chatStream({
       channel,

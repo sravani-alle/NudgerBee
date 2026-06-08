@@ -3,6 +3,7 @@ import { App, LogLevel } from '@slack/bolt';
 import { migrate } from './db/migrate.js';
 import { kvSet } from './db/repos/kv.js';
 import { registerListeners } from './listeners/index.js';
+import { startSchedulers } from './scheduler/index.js';
 
 // Initialize the Bolt app
 const app = new App({
@@ -28,11 +29,17 @@ registerListeners(app);
       if (auth.user_id && typeof auth.user_id === 'string') {
         kvSet('bot_user_id', auth.user_id);
       }
+      if (auth.team_id && typeof auth.team_id === 'string') {
+        kvSet('team_id', auth.team_id);
+      }
       app.logger.info(`⚡️ Bolt app is running as ${auth.user} (${auth.user_id})!`);
     } catch (e) {
       app.logger.warn(`Could not cache bot_user_id: ${e}`);
       app.logger.info('⚡️ Bolt app is running!');
     }
+
+    // Register cron jobs (daily reminders, etc.) now that the client is live.
+    startSchedulers({ client: app.client, logger: app.logger });
   } catch (error) {
     app.logger.error('Failed to start the app', error);
   }

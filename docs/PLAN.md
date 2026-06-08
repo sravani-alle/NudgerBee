@@ -2,7 +2,7 @@
 
 ## Context
 
-This repo is the submission for the **Slack Agent Builder Challenge** (Devpost, hard deadline 2026-07-13, *Slack Agent for Good* track). **Nudger Bee 🐝** is a Slack-based community-health agent that profiles new members ("Hivemates"), matches them into private peer cohort channels, runs personality-filled accountability nudges, and helps overwhelmed Community Health Workers ("Hive Keepers") see who has gone quiet — replacing spreadsheets and WhatsApp groups.
+This repo is the submission for the **Slack Agent Builder Challenge** (Devpost, hard deadline 2026-07-13, *Slack Agent for Good* track). **Nudger Bee 🐝** is a Slack-based community-health agent that profiles new members ("Hivemates"), matches them with peers in a similar situation (a curated shortlist + bee-brokered warm 1:1 intros — not a shared channel), runs personality-filled accountability nudges, and helps overwhelmed Community Health Workers ("Hive Keepers") see who has gone quiet — replacing spreadsheets and WhatsApp groups.
 
 Today (2026-06-01) the repo is the stock `bolt-js-assistant-template` with the LLM layer rewired to the OpenAI-compatible Chat Completions API: it runs free against local Ollama (`qwen2.5:14b`) for dev and swaps to `gpt-4o-mini` for submission by env-var only. `agent/system-prompt.js` already encodes the bee persona, Hive vocabulary, language handling (default EN, mirror user's language, never mix), and hard clinical-safety guardrails (coordinator, *never* clinician). What's missing: persistence, scheduler, generic DM handler, peer cohort logic, MCP, and silence detection.
 
@@ -17,7 +17,7 @@ User decisions in effect: full MVP planned; persistence on SQLite (`better-sqlit
 
 These are the levers; everything in the sprint serves them.
 
-- **One narrative arc demo.** Maria the CHW with 80 patients → onboards a Hivemate → cohort channel → nudge → check-in → goes dormant → keeper digest → asks bee a scheduling question (visible MCP) → has a clinical question → escalation. Not a feature tour.
+- **One narrative arc demo.** Maria the CHW with 80 patients → onboards a Hivemate → bee suggests a peer + makes a warm 1:1 intro → nudge → check-in → goes dormant → keeper digest → asks bee a scheduling question (visible MCP) → has a clinical question → escalation. Not a feature tour.
 - **Lead the video with the human, not the tech.** First 30 seconds = the pain. Then bee.
 - **Required tech VISIBLE on screen.** MCP `task_update` chunk must fire on camera. Silence digest must land in a keeper's DM on camera. If a judge has to read the README to know the tech is central, we lose the "tech central" judging line.
 - **Safety story as differentiator.** The chest-pain → refusal → `escalate_to_hive_keeper` flow is a winning beat — most submissions in a health-adjacent track won't have it this clean. Show it.
@@ -47,6 +47,23 @@ Each row produces (a) the implementation and (b) a numbered testing doc in `docs
 | 13 | Sat 06/14 | **Submit on Devpost.** Track: Agent for Good. Description with impact statement, video link, architecture diagram, sandbox URL, judge emails verified. | `docs/testing/13-submission.md` (post-submission smoke test) |
 
 Days 14–42 (06-15 → 07-13): polish iterations from the Deferred list against the still-editable submission. Pivot to the Organizations track plan once Agent for Good is solid.
+
+### Progress log
+
+- **Day 1+2 (done).** Foundation + conversational onboarding (slot-filling DM). See commit `f542ed8`.
+- **Day 3 (done).** `complete_onboarding` tool (server-side slot validation, consolidates into `profile_json`, flips `onboarding_state='complete'`, exposes an `onComplete` hook for Day 4 matching), language resolution in `services/language.js`, full EN + ES flow. **Deviations:**
+  - *Language:* `franc-min` is unreliable on short text (misreads "I prefer English please" as Spanish; English as Uzbek when unconstrained). So the **stated `language` slot is authoritative** (`languageNameToCode`), and franc is only a length-gated, whitelist-constrained (`HIVE_LANGUAGES`, default `eng,spa`) fallback before a preference is captured. This replaces the plan's "franc over recent turns" as the primary signal.
+  - *DM routing:* the app has the Slack Assistant feature enabled, so DMs are routed through the Assistant container, not `message.im`. Onboarding was moved into `listeners/assistant/message.js` (+ `assistant_thread_started` welcome); shared logic extracted to `services/dm-turn.js` (`prepareHivemateTurn`), reused by `message_im.js` as a fallback. `member_joined.js` now posts a pointer nudge to avoid a double welcome. User chose to keep the Assistant pane (polished agent UI, task chunks for the MCP demo).
+  - *Local-model robustness (`agent/llm-caller.js`):* qwen2.5:14b via Ollama leaks its `<tool_call>`/`<|im_start|>` tokens into message content and sometimes hallucinates slot values. Fixes: tool-enabled turns now run **non-streaming** (reliable tool parsing), a fallback recovers tool calls leaked as text, control tokens are stripped before display, and a recursion cap (`MAX_TOOL_ROUNDS=6`) stops tool-call loops. `save_hivemate_profile_slot` rejects echoed/placeholder values. These are local-dev hardening; gpt-4o-mini (Day 11) doesn't hit them.
+  - Peer-cohort channel creation (the `onComplete` payoff) lands in Day 4 below.
+- **Days 4–6 (done, built as one batch — to be tested together on gpt-4o-mini).**
+  - *Day 4 (Phase C, peer matching):* `services/cohorts.js` (`derive`/`slugify`/`channelNameFor`, `::` separator), `db/repos/{channels,memberships,nudges}.js`, `services/channels.js` (find-or-create private channel with `name_taken` retry + invite), `services/matching.js` (`runMatching`: derive → channel → invite → **name-only** channel welcome → keeper DM from `app_kv["keeper:{cohort_key}"]`). Wired through `complete_onboarding`'s `onComplete` in both DM handlers; best-effort so a Slack hiccup never fails onboarding.
+  - *Day 5 (Phase D pt1, reminders):* `agent/prompts/nudge.js` (10 round-robin templates + `buildNudgePrompt`, language- and streak-aware), `scheduler/reminders.js` (`runOnce`/`runForAll`, template_id = `countNudges % 10`, `generateMessage`, `nudge_target` kv = dm|channel default dm), `scheduler/index.js` (`startSchedulers` node-cron, `reminder_cron`/`default_timezone` from kv), wired into `app.js`.
+  - *Day 6 (Phase D pt2, Honey):* `db/repos/checkins.js` (`recordCheckin` + pure `computeStreak`, UTC day boundaries), `agent/tools/checkin.js` (`record_checkin`), exposed to onboarded Hivemates via `prepareHivemateTurn`. Streak feeds the nudge prompt.
+  - Verified offline against live Ollama with mock Slack clients: matching flow, reminder round-robin (10 distinct), and all streak branches. **Not yet exercised live in Slack** — that's the user's combined test pass. Requires restarting `slack run`.
+  - *Deferred to keep batch focused:* per-Hivemate-timezone reminder rows (sprint uses one daily cron + workspace default tz); per-timezone streak day boundaries (UTC for now).
+- **Phase C REDESIGN (done, supersedes the Day 4 entry above).** User rejected the cohort-channel model (sprawl; dead, intimidating rooms). New model: **peer suggestions + bee-brokered warm 1:1 intro, bee stays out of the chat**, and **`condition` made optional**. Changed: `onboarding.js`/`profile.js` (REQUIRED vs ALL slots; don't invent condition), `cohorts.js` (condition→`general-wellness`, dropped `channelNameFor`), NEW `services/peers.js` + `agent/tools/intro.js` + `db/repos/intros.js` + `intros` table, `matching.js` rewritten (no channel; returns `suggestions`), `complete_onboarding` surfaces `suggestions`, `dm-turn.js` exposes `[record_checkin, request_intro]` post-onboarding. **Deleted `services/channels.js`**; `channels`/`memberships` tables now unused. Verified offline (consent filtering, no-channel, intro heads-up, dup/bogus-id guards, condition-optional derive).
+  - ⚠️ **Downstream implication for Day 7 (Phase E, silence detector):** it was designed to poll `conversations.history` of each **cohort channel** — which no longer exists. Day 7 must instead derive activity from DMs / `checkins` / `last_active_at` (touched on every DM turn) rather than cohort-channel history. Revisit `services/activity.js` design accordingly.
 
 ## Deferred / future possibilities
 
@@ -141,16 +158,20 @@ Design pillars carried throughout:
 - `agent/tools/profile.js`:
   - `save_hivemate_profile_slot({slot, value})` — idempotent upsert into `hivemate_profile_slots`. Returns `{saved, remaining_slots}` so the LLM observes progress in the tool result.
   - `complete_onboarding()` — JS-validates `missing.length === 0`. On success: consolidate slots into `hivemates`, flip `onboarding_state='complete'`, trigger Phase C matching. On failure: return `{ok: false, remaining_slots}` so the LLM keeps asking.
-- Required slots (initial): `language`, `condition`, `role`, `goals`, `consent`. Free-form prose stored separately in `profile_json` for color, not matching.
+- Required slots: `language`, `role`, `goals`, `consent`. `condition` is OPTIONAL (`ALL_SLOTS` includes it but `REQUIRED_SLOTS` does not) — saved only if the Hivemate volunteers a specific condition; never invented. Free-form prose stored in `profile_json`.
 - Turn cap (~8); if still incomplete, escalate to a Hive Keeper to follow up manually.
 - `services/language.js`: run `franc-min` over recent user turns; persist `hivemates.language`. Pre-LLM so language stickiness is deterministic.
 
-### Phase C — Peer matching (Day 4)
+### Phase C — Peer matching (Day 4) — REDESIGNED (see Progress log + [[memory] project_phase_c_redesign])
 
-- `services/cohorts.js`: `derive(profile) → cohort_key = slugify(condition) + '::' + slugify(role)`. The `::` separator avoids collisions when slug fields contain hyphens.
-- `services/channels.js`: `findOrCreate(cohort_key)` — read from `channels` table; if absent, `conversations.create` (private, name like `hive-t2d-single-parent`), persist mapping. `invite(user_id, channel_id)` via `conversations.invite`, write to `memberships`.
-- After `complete_onboarding` triggers matching: derive `cohort_key` → find-or-create channel → invite Hivemate → bee posts a single name-only welcome. **Never reveal health details in channel.**
+The original "one private channel per cohort, auto-invite everyone" model was dropped after user feedback (channel sprawl; dead, intimidating rooms of strangers). New model: **suggest a few real peers + bee-brokered warm intro; the bee stays out of the resulting 1:1.**
+
+- `services/cohorts.js`: `derive(profile) → cohort_key = slugify(condition) + '::' + slugify(role)`. `condition` is OPTIONAL → falls back to `general-wellness`. The `::` separator avoids collisions when slug fields contain hyphens.
+- `services/peers.js`: `suggestPeers(cohort_key, excludeUserId, limit=3)` — completed, **consenting** cohort members (minus self), ranked by `last_active_at`, with a **non-clinical** blurb from role/goals. `hasConsented()` is the consent gate.
+- `services/matching.js`: `runMatching` derives + persists `cohort_key`, returns `{cohort_key, consented, suggestions}` (no channel). `complete_onboarding` surfaces `suggestions` in its tool result so the bee presents them as `<@user>` mentions and offers an intro. Cold-start: empty suggestions → "you're among the first" message. Keeper ping retained.
+- `agent/tools/intro.js`: `request_intro({peer_user_id})` — server-validates the peer is a consenting same-cohort member, DMs the **peer** a heads-up (so it's not a cold message), records the directed intro in the `intros` table, and tells the requester to DM the peer directly. **The bee never joins their 1:1.** No channels, no group DM.
 - Hive Keeper assignment: read `app_kv["keeper:{cohort_key}"]` and DM that user that the cohort has a new member.
+- `channels`/`memberships` tables + `db/repos/channels.js` are now unused (left in place; `services/channels.js` deleted).
 
 ### Phase D — Reminder engine + Honey streaks (Days 5–6)
 
@@ -183,6 +204,7 @@ Design pillars carried throughout:
 - Day 9: Safety tools wired everywhere they fire (`escalate_to_hive_keeper` in onboarding + message_im + assistant). Keeper stats tool gated by `keeper:*` membership.
 - Day 10: `scripts/seed-demo.js` populates 4 fake Hivemates with varied profiles + `last_active_at` (one dormant) + populated `nudge_log` + `keeper:*` entries. Delete the template demo branches in `listeners/assistant/message.js` (~lines 39–133, the dice / "deep thoughts" scaffolding).
 - Day 11: Switch `.env` to `LLM_MODEL=gpt-4o-mini` + real `OPENAI_API_KEY`. Full re-test on OpenAI. Write `README_FOR_JUDGES.md` (one page: how to start a session, exactly what to type for each demo beat, what to expect). Run the safety regression suite (chest pain EN/ES, metformin dose, encouragement, multilingual chest pain) — must still refuse + escalate + log.
+  - **Clean up the local-LLM shims (added Day 3 for qwen2.5/Ollama).** Run `grep -rn "LOCAL-LLM-SHIM" agent/` to find them all. To remove: (1) in `agent/llm-caller.js`, collapse the non-streaming tool branch back into one streaming path and delete `stripControlTokens` / `scanBalancedJson` / `extractToolCallsFromText` + the text-recovery fallback; (2) in `agent/tools/profile.js`, drop (or relax) the echoed/placeholder value guard. **Keep** the `MAX_TOOL_ROUNDS` recursion cap — that's sound defensiveness regardless of model. Re-run the onboarding flow after removal to confirm gpt-4o-mini streams tool calls cleanly.
 - Day 12: Record <3-minute demo video. Architecture diagram as a PNG (Slack events → Bolt listeners → SQLite + scheduler + LLM via Ollama/OpenAI → MCP server). Invite `slackhack@salesforce.com` and `testing@devpost.com` into the sandbox workspace, the landing channel, and one pre-seeded demo cohort.
 - Day 13: Submit on Devpost. Track = Agent for Good. Description includes the impact statement. Video link, architecture diagram, sandbox URL. After submission, all artifacts remain editable until 07-13.
 

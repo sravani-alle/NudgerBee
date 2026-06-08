@@ -38,9 +38,12 @@ export const memberJoinedCallback = async ({ event, client, logger }) => {
     upsertHivemate({ userId, teamId });
     setOnboardingState(userId, 'in_progress');
 
+    // Proactive pointer only. The actual welcome + first onboarding question is
+    // posted inside the Assistant thread (assistant_thread_started) when the
+    // Hivemate opens this DM, so we don't ask the same question twice.
     await client.chat.postMessage({
       channel: dmChannel,
-      text: "Hi! Nudger Bee 🐝 here — welcome to the Hive! I'd love to learn a little about you so I can match you with Hivemates in similar situations. To start: what language would you like us to chat in? (English is the default, but pick whatever feels comfortable.)",
+      text: "🐝 Welcome to the Hive! I'm Nudger Bee, and I'd love to get you set up with peers in a similar situation. Open our chat and say hi whenever you're ready — I'll take it from there!",
     });
   } catch (e) {
     logger.error(`member_joined handler error: ${e instanceof Error ? e.message : String(e)}`);

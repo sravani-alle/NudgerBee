@@ -25,6 +25,21 @@ const touchActiveStmt = db.prepare(
    WHERE slack_user_id = ?`,
 );
 
+const completeOnboardingStmt = db.prepare(
+  `UPDATE hivemates
+   SET profile_json = ?, onboarding_state = 'complete', updated_at = strftime('%s','now')
+   WHERE slack_user_id = ?`,
+);
+
+const updateCohortStmt = db.prepare(
+  `UPDATE hivemates SET cohort_key = ?, updated_at = strftime('%s','now')
+   WHERE slack_user_id = ?`,
+);
+
+const listByCohortStmt = db.prepare("SELECT * FROM hivemates WHERE cohort_key = ? AND onboarding_state = 'complete'");
+
+const listActiveStmt = db.prepare("SELECT * FROM hivemates WHERE onboarding_state = 'complete'");
+
 /**
  * @typedef {Object} HivemateRow
  * @property {string} slack_user_id
@@ -79,4 +94,39 @@ export function setLanguage(userId, language) {
 /** @param {string} userId */
 export function touchActive(userId) {
   touchActiveStmt.run(userId);
+}
+
+/**
+ * Finalize onboarding: persist the consolidated profile and flip the state to
+ * 'complete' in one statement. Note this does NOT touch `language` — that is
+ * owned by the deterministic detector in `services/language.js`.
+ *
+ * @param {string} userId
+ * @param {Record<string, string>} profile - the filled slot map to consolidate
+ */
+export function completeOnboarding(userId, profile) {
+  completeOnboardingStmt.run(JSON.stringify(profile ?? {}), userId);
+}
+
+/**
+ * @param {string} userId
+ * @param {string} cohortKey
+ */
+export function setCohortKey(userId, cohortKey) {
+  updateCohortStmt.run(cohortKey, userId);
+}
+
+/**
+ * @param {string} cohortKey
+ * @returns {HivemateRow[]} completed Hivemates in this cohort
+ */
+export function listByCohort(cohortKey) {
+  return /** @type {HivemateRow[]} */ (listByCohortStmt.all(cohortKey));
+}
+
+/**
+ * @returns {HivemateRow[]} all Hivemates who have finished onboarding
+ */
+export function listActiveHivemates() {
+  return /** @type {HivemateRow[]} */ (listActiveStmt.all());
 }

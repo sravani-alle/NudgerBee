@@ -81,6 +81,18 @@ CREATE TABLE IF NOT EXISTS reminders (
   created_at      INTEGER NOT NULL
 );
 
+-- Warm peer introductions. The bee brokers a connection (heads-up DM to the
+-- peer) but stays OUT of the resulting 1:1 conversation. One row per directed
+-- intro so we don't re-introduce the same pair.
+CREATE TABLE IF NOT EXISTS intros (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  requester_user_id TEXT NOT NULL,
+  peer_user_id      TEXT NOT NULL,
+  cohort_key        TEXT,
+  created_at        INTEGER NOT NULL,
+  UNIQUE (requester_user_id, peer_user_id)
+);
+
 -- Generic key/value: bot_user_id, landing_channel, keeper:{cohort_key}, channel_cursor:{channel_id}, etc.
 CREATE TABLE IF NOT EXISTS app_kv (
   k          TEXT PRIMARY KEY,
