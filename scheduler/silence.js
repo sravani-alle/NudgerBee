@@ -4,6 +4,7 @@ import { listActiveHivemates, setDormancyNotified, setDormantSince } from '../db
 import { kvGet } from '../db/repos/kv.js';
 import { dormantSince } from '../services/activity.js';
 import { sendDormancyDigest } from '../services/hivekeeper.js';
+import { keeperFor } from '../services/keepers.js';
 
 /** @type {WebClient | undefined} */
 let fallbackClient;
@@ -12,16 +13,6 @@ function getClient(provided) {
   if (provided) return provided;
   if (!fallbackClient) fallbackClient = new WebClient(process.env.SLACK_BOT_TOKEN);
   return fallbackClient;
-}
-
-/**
- * Resolve the Hive Keeper for a cohort: the cohort-specific keeper, else a
- * workspace `default_keeper` if one is set.
- * @param {string | null} cohortKey
- * @returns {string | null}
- */
-function keeperFor(cohortKey) {
-  return (cohortKey && kvGet(`keeper:${cohortKey}`)) || kvGet('default_keeper') || null;
 }
 
 /**

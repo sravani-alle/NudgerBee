@@ -2,7 +2,9 @@ import { getMcpTools } from '../agent/mcp-client.js';
 import { buildOnboardingPrompt, REQUIRED_SLOTS } from '../agent/prompts/onboarding.js';
 import { makeCheckinTools } from '../agent/tools/checkin.js';
 import { makeIntroTools } from '../agent/tools/intro.js';
+import { makeKeeperTools } from '../agent/tools/keeper.js';
 import { makeProfileTools } from '../agent/tools/profile.js';
+import { makeSafetyTools } from '../agent/tools/safety.js';
 import { getHivemate, setLanguage, setOnboardingState, touchActive, upsertHivemate } from '../db/repos/hivemates.js';
 import { getMissingSlots, listSlots } from '../db/repos/slots.js';
 import { languageNameToCode, maybeUpdateLanguage } from './language.js';
@@ -43,14 +45,25 @@ export function prepareHivemateTurn({ userId, teamId, recentUserTexts, onComplet
     maybeUpdateLanguage(userId, recentUserTexts);
   }
 
+  // Safety escalation is available on EVERY turn — a clinical concern can surface
+  // mid-onboarding just as easily as after it (keeper tools are keeper-gated).
+  const safetyTools = makeSafetyTools(userId, { client });
+
   const hivemate = getHivemate(userId);
   if (hivemate?.onboarding_state === 'complete') {
     // Onboarded Hivemates chat with the base persona, plus the check-in tool
-    // ("took my meds 🍯" → streak), the intro tool (connect me to a peer), and
-    // the MCP program-server tools (upcoming sessions / schedule a follow-up).
+    // ("took my meds 🍯" → streak), the intro tool (connect me to a peer), the
+    // MCP program-server tools (upcoming sessions / schedule a follow-up),
+    // escalation, and — for Hive Keepers only — the hive overview.
     return {
       systemPrompt: undefined,
-      tools: [...makeCheckinTools(userId), ...makeIntroTools(userId, { client }), ...getMcpTools()],
+      tools: [
+        ...makeCheckinTools(userId),
+        ...makeIntroTools(userId, { client }),
+        ...getMcpTools(),
+        ...safetyTools,
+        ...makeKeeperTools(userId),
+      ],
       isComplete: true,
     };
   }
@@ -58,7 +71,7 @@ export function prepareHivemateTurn({ userId, teamId, recentUserTexts, onComplet
   const missingSlots = getMissingSlots(userId, REQUIRED_SLOTS);
   return {
     systemPrompt: buildOnboardingPrompt({ filledSlots, missingSlots }),
-    tools: makeProfileTools(userId, { onComplete }),
+    tools: [...makeProfileTools(userId, { onComplete }), ...safetyTools],
     isComplete: false,
   };
 }
