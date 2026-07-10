@@ -33,13 +33,16 @@ export function makeKeeperTools(slackUserId) {
         // string. Structured {name, streak} objects let the model echo the
         // number and drop the name; a whole sentence per Hivemate can't be
         // half-rendered. (Fake seeded ids are omitted entirely — unused here.)
-        return {
+        const result = {
           description: `Hive overview: ${stats.total} Hivemates, ${stats.dormant.length} dormant`,
           total_hivemates: stats.total,
           active: stats.activeCount,
           dormant: stats.dormant.map((d) => `${d.name} — quiet for ${d.daysQuiet} day${d.daysQuiet === 1 ? '' : 's'}`),
           top_streaks: stats.topStreaks.map((t) => `${t.name} — ${t.streak}-day Honey streak 🍯`),
         };
+        // TEMP DIAGNOSTIC — remove after we confirm the live tool output.
+        console.log('🔎 hive_stats returning →', JSON.stringify(result));
+        return result;
       },
       getTaskTitle: () => 'Pulling your hive overview 🐝…',
     },
