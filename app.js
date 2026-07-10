@@ -23,6 +23,10 @@ registerListeners(app);
 // Start the Bolt app
 (async () => {
   try {
+    // Build marker — bump when verifying a code change is actually live.
+    // Look for this line in the run logs after restarting; if it's missing/older,
+    // the process did not reload the latest code.
+    console.log('🐝 Nudger Bee build: keeper-stats=plaintext-names-v3');
     migrate();
     await app.start();
     try {
