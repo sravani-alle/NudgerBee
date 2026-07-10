@@ -45,31 +45,23 @@ export function prepareHivemateTurn({ userId, teamId, recentUserTexts, onComplet
     maybeUpdateLanguage(userId, recentUserTexts);
   }
 
-  // These tools are available on EVERY turn, ADDITIVELY, regardless of onboarding
-  // state: escalation (a clinical concern can surface any time) and — if this
-  // user is a Hive Keeper — the hive overview. makeKeeperTools is keeper-gated,
-  // so it's [] for regular Hivemates. Additive (not a separate keeper "mode") so
-  // one account can be BOTH a Hivemate (onboard, check in) AND a Keeper (ask
-  // hive_stats) — essential for a solo demo, and it fixes the case where a keeper
-  // mid-onboarding had no hive_stats tool and got a generic non-answer.
-  const safetyTools = makeSafetyTools(userId, { client });
-  const keeperTools = makeKeeperTools(userId);
+  // Tools available on EVERY turn, ADDITIVELY, regardless of onboarding state:
+  //  - escalation (a clinical concern can surface any time),
+  //  - the MCP program-server tools (upcoming sessions / schedule a follow-up) —
+  //    a keeper or a mid-onboarding Hivemate can ask "when's the next session?",
+  //  - and, if this user is a Hive Keeper, the hive overview (keeper-gated, so []
+  //    for regular Hivemates).
+  // Additive (not a separate keeper "mode") so one account can be BOTH a Hivemate
+  // (onboard, check in) AND a Keeper (hive_stats), which a solo demo needs.
+  const alwaysTools = [...getMcpTools(), ...makeSafetyTools(userId, { client }), ...makeKeeperTools(userId)];
 
   const hivemate = getHivemate(userId);
   if (hivemate?.onboarding_state === 'complete') {
-    // Onboarded Hivemates chat with the base persona, plus the check-in tool
-    // ("took my meds 🍯" → streak), the intro tool (connect me to a peer), the
-    // MCP program-server tools (upcoming sessions / schedule a follow-up),
-    // escalation, and — for keepers — the hive overview.
+    // Onboarded Hivemates also get the check-in tool ("took my meds 🍯" → streak)
+    // and the intro tool (connect me to a peer).
     return {
       systemPrompt: undefined,
-      tools: [
-        ...makeCheckinTools(userId),
-        ...makeIntroTools(userId, { client }),
-        ...getMcpTools(),
-        ...safetyTools,
-        ...keeperTools,
-      ],
+      tools: [...makeCheckinTools(userId), ...makeIntroTools(userId, { client }), ...alwaysTools],
       isComplete: true,
     };
   }
@@ -77,7 +69,7 @@ export function prepareHivemateTurn({ userId, teamId, recentUserTexts, onComplet
   const missingSlots = getMissingSlots(userId, REQUIRED_SLOTS);
   return {
     systemPrompt: buildOnboardingPrompt({ filledSlots, missingSlots }),
-    tools: [...makeProfileTools(userId, { onComplete }), ...safetyTools, ...keeperTools],
+    tools: [...makeProfileTools(userId, { onComplete }), ...alwaysTools],
     isComplete: false,
   };
 }
