@@ -23,11 +23,10 @@ export const appMentionCallback = async ({ event, client, logger, say }) => {
       thread_ts: thread_ts,
       status: 'thinking...',
       loading_messages: [
-        'Teaching the hamsters to type faster…',
-        'Untangling the internet cables…',
-        'Consulting the office goldfish…',
-        'Polishing up the response just for you…',
-        'Convincing the AI to stop overthinking…',
+        'Buzzing over to the Hive…',
+        'Checking the honey stores…',
+        'Gathering the latest from the Hive…',
+        'Finding just the right words…',
       ],
     });
 
