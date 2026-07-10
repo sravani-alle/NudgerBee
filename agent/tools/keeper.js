@@ -29,15 +29,16 @@ export function makeKeeperTools(slackUserId) {
         if (!stats.isKeeper) {
           return { error: "You don't keep any Hivemates yet." };
         }
-        // Hand the model a name-first shape and DROP the internal user ids —
-        // otherwise it tends to echo a streak number without the person's name.
-        // With `name` as the only identifier, every line has to name someone.
+        // Hand the model PRE-FORMATTED lines with the name baked into each
+        // string. Structured {name, streak} objects let the model echo the
+        // number and drop the name; a whole sentence per Hivemate can't be
+        // half-rendered. (Fake seeded ids are omitted entirely — unused here.)
         return {
           description: `Hive overview: ${stats.total} Hivemates, ${stats.dormant.length} dormant`,
           total_hivemates: stats.total,
           active: stats.activeCount,
-          dormant: stats.dormant.map((d) => ({ name: d.name, days_quiet: d.daysQuiet })),
-          top_streaks: stats.topStreaks.map((t) => ({ name: t.name, honey_streak_days: t.streak })),
+          dormant: stats.dormant.map((d) => `${d.name} — quiet for ${d.daysQuiet} day${d.daysQuiet === 1 ? '' : 's'}`),
+          top_streaks: stats.topStreaks.map((t) => `${t.name} — ${t.streak}-day Honey streak 🍯`),
         };
       },
       getTaskTitle: () => 'Pulling your hive overview 🐝…',
