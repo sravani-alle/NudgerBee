@@ -1,4 +1,5 @@
 import { OpenAI } from 'openai';
+import { resolveDemoMentions } from '../db/repos/hivemates.js';
 import { BASE_SYSTEM_PROMPT } from './prompts/base.js';
 
 // LLM client. Defaults to OpenAI; point LLM_BASE_URL at a local Ollama
@@ -155,7 +156,7 @@ export async function callLLM(streamer, messages, { systemPrompt = BASE_SYSTEM_P
       }
     }
 
-    const display = stripControlTokens(assistantContent).trim();
+    const display = resolveDemoMentions(stripControlTokens(assistantContent).trim());
     if (display) await streamer.append({ markdown_text: display });
   } else {
     // No tools: stream plain text for the typing effect.
@@ -164,7 +165,7 @@ export async function callLLM(streamer, messages, { systemPrompt = BASE_SYSTEM_P
       const delta = chunk.choices[0]?.delta;
       if (delta?.content) {
         assistantContent += delta.content;
-        const display = stripControlTokens(delta.content);
+        const display = resolveDemoMentions(stripControlTokens(delta.content));
         if (display) await streamer.append({ markdown_text: display });
       }
     }

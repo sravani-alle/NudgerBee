@@ -181,3 +181,31 @@ export function displayName(row) {
   }
   return `<@${row.slack_user_id}>`;
 }
+
+const profileJsonStmt = db.prepare('SELECT profile_json FROM hivemates WHERE slack_user_id = ?');
+
+/**
+ * Deterministic output guard: replace any `<@id>` mention of a Hivemate that
+ * carries a stored `name` (i.e. a seeded demo Hivemate whose id is NOT a real
+ * Slack user) with that plain name. Real users have no stored name, so their
+ * mentions are left untouched for Slack to resolve normally. Applied to the
+ * bee's outgoing text so a fabricated `<@UDEMO...>` mention can never render
+ * blank in the UI — regardless of what the model decided to emit.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function resolveDemoMentions(text) {
+  if (typeof text !== 'string' || !text.includes('<@')) return text;
+  return text.replace(/<@([A-Z0-9]+)>/g, (full, id) => {
+    const row = /** @type {{ profile_json: string } | undefined} */ (profileJsonStmt.get(id));
+    if (!row) return full;
+    try {
+      const name = JSON.parse(row.profile_json || '{}')?.name;
+      if (typeof name === 'string' && name.trim()) return name.trim();
+    } catch {
+      // fall through
+    }
+    return full;
+  });
+}
