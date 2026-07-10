@@ -8,7 +8,9 @@ const insertStmt = db.prepare(
 );
 const getStreakStmt = db.prepare('SELECT honey_streak, last_checkin_at FROM hivemates WHERE slack_user_id = ?');
 const setStreakStmt = db.prepare(
-  `UPDATE hivemates SET honey_streak = ?, last_checkin_at = ?, updated_at = strftime('%s','now')
+  `UPDATE hivemates
+   SET honey_streak = ?, last_checkin_at = ?, last_active_at = ?, updated_at = strftime('%s','now'),
+       dormant_since = NULL, dormancy_notified_at = NULL
    WHERE slack_user_id = ?`,
 );
 const countStmt = db.prepare('SELECT COUNT(*) AS n FROM checkins WHERE slack_user_id = ?');
@@ -52,7 +54,9 @@ export function recordCheckin(userId, kind, content = null, nowSec = Math.floor(
       getStreakStmt.get(userId)
     );
     const newStreak = computeStreak(row?.honey_streak ?? 0, row?.last_checkin_at ?? null, nowSec);
-    setStreakStmt.run(newStreak, nowSec, userId);
+    // A check-in is activity: bump honey_streak + last_checkin_at + last_active_at
+    // and clear dormancy in one statement.
+    setStreakStmt.run(newStreak, nowSec, nowSec, userId);
     return newStreak;
   });
   return { honey_streak: tx(), kind };

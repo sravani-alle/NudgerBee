@@ -21,8 +21,18 @@ const updateLanguageStmt = db.prepare(
 );
 
 const touchActiveStmt = db.prepare(
-  `UPDATE hivemates SET last_active_at = strftime('%s','now'), updated_at = strftime('%s','now')
+  `UPDATE hivemates
+   SET last_active_at = strftime('%s','now'), updated_at = strftime('%s','now'),
+       dormant_since = NULL, dormancy_notified_at = NULL
    WHERE slack_user_id = ?`,
+);
+
+const setDormantSinceStmt = db.prepare(
+  `UPDATE hivemates SET dormant_since = ?, updated_at = strftime('%s','now') WHERE slack_user_id = ?`,
+);
+
+const setDormancyNotifiedStmt = db.prepare(
+  `UPDATE hivemates SET dormancy_notified_at = ?, updated_at = strftime('%s','now') WHERE slack_user_id = ?`,
 );
 
 const completeOnboardingStmt = db.prepare(
@@ -91,9 +101,29 @@ export function setLanguage(userId, language) {
   updateLanguageStmt.run(language, userId);
 }
 
-/** @param {string} userId */
+/**
+ * Mark a Hivemate active "now" and clear any dormancy flags — they're back, so
+ * a future quiet spell should be eligible to page the keeper again.
+ * @param {string} userId
+ */
 export function touchActive(userId) {
   touchActiveStmt.run(userId);
+}
+
+/**
+ * @param {string} userId
+ * @param {number} sinceSec - unix seconds they have been quiet since
+ */
+export function setDormantSince(userId, sinceSec) {
+  setDormantSinceStmt.run(sinceSec, userId);
+}
+
+/**
+ * @param {string} userId
+ * @param {number} atSec - unix seconds the keeper was paged about this dormancy
+ */
+export function setDormancyNotified(userId, atSec) {
+  setDormancyNotifiedStmt.run(atSec, userId);
 }
 
 /**

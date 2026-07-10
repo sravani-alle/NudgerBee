@@ -64,6 +64,7 @@ Days 14–42 (06-15 → 07-13): polish iterations from the Deferred list against
   - *Deferred to keep batch focused:* per-Hivemate-timezone reminder rows (sprint uses one daily cron + workspace default tz); per-timezone streak day boundaries (UTC for now).
 - **Phase C REDESIGN (done, supersedes the Day 4 entry above).** User rejected the cohort-channel model (sprawl; dead, intimidating rooms). New model: **peer suggestions + bee-brokered warm 1:1 intro, bee stays out of the chat**, and **`condition` made optional**. Changed: `onboarding.js`/`profile.js` (REQUIRED vs ALL slots; don't invent condition), `cohorts.js` (condition→`general-wellness`, dropped `channelNameFor`), NEW `services/peers.js` + `agent/tools/intro.js` + `db/repos/intros.js` + `intros` table, `matching.js` rewritten (no channel; returns `suggestions`), `complete_onboarding` surfaces `suggestions`, `dm-turn.js` exposes `[record_checkin, request_intro]` post-onboarding. **Deleted `services/channels.js`**; `channels`/`memberships` tables now unused. Verified offline (consent filtering, no-channel, intro heads-up, dup/bogus-id guards, condition-optional derive).
   - ⚠️ **Downstream implication for Day 7 (Phase E, silence detector):** it was designed to poll `conversations.history` of each **cohort channel** — which no longer exists. Day 7 must instead derive activity from DMs / `checkins` / `last_active_at` (touched on every DM turn) rather than cohort-channel history. Revisit `services/activity.js` design accordingly.
+- **Day 7 (Phase E, silence detector — done, reworked per the note above).** Activity = `max(last_active_at, last_checkin_at, joined_at)` via `services/activity.js` (no cohort-channel history). `scheduler/silence.js` `runSilenceScan` flags Hivemates quiet ≥ threshold (default 3d), pages each cohort's Hive Keeper ONCE per spell (gated by `dormancy_notified_at`) with one grouped digest DM via `services/hivekeeper.js`; `touchActive`/`recordCheckin` clear dormancy so later spells re-page. Hourly cron added to `scheduler/index.js`; keeper resolved via `keeper:{cohort_key}` → `default_keeper`. Verified offline against the Day-7 acceptance scenario (backdate 5d → paged once; second scan no re-page; check-in clears → re-pageable). **Not yet exercised live in Slack.**
 
 ## Deferred / future possibilities
 
@@ -184,12 +185,14 @@ The original "one private channel per cohort, auto-invite everyone" model was dr
 - Timezone-aware via per-job `timezone` option on `node-cron`. Default falls back to a workspace default in `app_kv` so we don't DM people at 3 AM.
 - `agent/tools/checkin.js`: `record_checkin({user_id, kind, content})` — exposed in `message_im.js` mode. On a Hivemate posting "logged my meds 🍯", the bee records it, recomputes streak length in `hivemates`, replies with a fresh on-brand cheer.
 
-### Phase E — Silence detector, history-only in sprint (Day 7)
+### Phase E — Silence detector (Day 7) — REWORKED (DM/check-in activity, not cohort-channel history)
 
-- `services/activity.js` exposes `lastActiveAt(user_id)` and `dormantSince(user_id, threshold_days)`.
-- **`HistoryActivityProvider` (sprint default).** For each cohort channel: `conversations.history` incrementally, storing `ts` cursor per channel in `app_kv["channel_cursor:{channel_id}"]`. Aggregate latest message ts per user.
-- `scheduler/silence.js` runs hourly: walk active Hivemates, set `dormant_since` when threshold (default 3 days) is crossed, trigger `services/hivekeeper.js` to send one digest DM per keeper with one-line context per dormant Hivemate. Set `dormancy_notified_at` to avoid re-paging.
-- (RTS overlay is Deferred — see that section.)
+The Phase C redesign removed cohort channels, so the planned `HistoryActivityProvider` (per-cohort-channel `conversations.history`) no longer applies. Activity is derived instead from per-Hivemate signals we already track.
+
+- `services/activity.js`: `lastActiveAt(hivemate)` = `max(last_active_at, last_checkin_at, joined_at)`; `dormantSince(hivemate, thresholdDays, nowSec)` returns the last-active ts if quiet ≥ threshold, else null. Indirection kept so a future RTS/search overlay can slot in (still Deferred).
+- `last_active_at` is bumped on every DM turn (`touchActive`) and every check-in (`recordCheckin`); both also **clear** `dormant_since`/`dormancy_notified_at` so a later spell re-pages.
+- `scheduler/silence.js` `runSilenceScan` (hourly cron in `scheduler/index.js`): walk completed Hivemates, set `dormant_since` when quiet ≥ threshold (default 3, `dormancy_threshold_days` kv), group newly-dormant (gated by null `dormancy_notified_at`) by keeper, and `services/hivekeeper.js` `sendDormancyDigest` DMs each keeper ONE digest (name + "quiet for N days", no health details). Keeper resolved via `keeper:{cohort_key}` then `default_keeper`. Sets `dormancy_notified_at` after paging.
+- (RTS overlay is Deferred — see that section. The "powered by Slack search" required-tech angle now leans entirely on MCP + the activity story, not `conversations.history`.)
 
 ### Phase F — MCP, lean in sprint (Day 8)
 
