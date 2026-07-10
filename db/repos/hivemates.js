@@ -160,3 +160,24 @@ export function listByCohort(cohortKey) {
 export function listActiveHivemates() {
   return /** @type {HivemateRow[]} */ (listActiveStmt.all());
 }
+
+/**
+ * A human-friendly label for a Hivemate in user-facing copy (keeper digests,
+ * hive_stats, peer suggestions). Real Slack users have no stored name, so we
+ * render a `<@id>` mention that Slack resolves to their display name. Seeded
+ * demo Hivemates carry a `name` in their profile_json so they read as "Rosa"
+ * even though their id isn't a real Slack user.
+ *
+ * @param {HivemateRow | null | undefined} row
+ * @returns {string}
+ */
+export function displayName(row) {
+  if (!row) return 'a Hivemate';
+  try {
+    const name = JSON.parse(row.profile_json || '{}')?.name;
+    if (typeof name === 'string' && name.trim()) return name.trim();
+  } catch {
+    // profile_json not valid JSON — fall through to a mention
+  }
+  return `<@${row.slack_user_id}>`;
+}

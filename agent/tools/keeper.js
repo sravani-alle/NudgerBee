@@ -20,7 +20,7 @@ export function makeKeeperTools(slackUserId) {
         function: {
           name: 'hive_stats',
           description:
-            "Give this Hive Keeper an overview of their hive: how many Hivemates they keep, how many are active vs. dormant (quiet past the threshold), who has gone quiet and for how long, and the top Honey streaks. Use when a keeper asks how their hive/people are doing, who's gone quiet, or for a summary. Present Hivemates as <@user> mentions. Do NOT include any health details — only cohort and activity.",
+            "Give this Hive Keeper an overview of their hive: how many Hivemates they keep, how many are active vs. dormant (quiet past the threshold), who has gone quiet and for how long, and the top Honey streaks. Use when a keeper asks how their hive/people are doing, who's gone quiet, or for a summary. Refer to each Hivemate by the `name` field in the result. Do NOT include any health details — only cohort and activity.",
           parameters: { type: 'object', properties: {}, required: [] },
         },
       },

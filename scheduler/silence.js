@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { WebClient } from '@slack/web-api';
-import { listActiveHivemates, setDormancyNotified, setDormantSince } from '../db/repos/hivemates.js';
+import { displayName, listActiveHivemates, setDormancyNotified, setDormantSince } from '../db/repos/hivemates.js';
 import { kvGet } from '../db/repos/kv.js';
 import { dormantSince } from '../services/activity.js';
 import { sendDormancyDigest } from '../services/hivekeeper.js';
@@ -53,7 +53,7 @@ export async function runSilenceScan({
       continue;
     }
     if (!byKeeper.has(keeperId)) byKeeper.set(keeperId, []);
-    byKeeper.get(keeperId)?.push({ userId: hm.slack_user_id, since });
+    byKeeper.get(keeperId)?.push({ userId: hm.slack_user_id, name: displayName(hm), since });
   }
 
   /** @type {string[]} */

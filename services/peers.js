@@ -1,4 +1,4 @@
-import { listByCohort } from '../db/repos/hivemates.js';
+import { displayName, listByCohort } from '../db/repos/hivemates.js';
 import { listSlots } from '../db/repos/slots.js';
 
 /**
@@ -41,7 +41,7 @@ export function blurbFor(slots) {
  * @param {string} cohortKey
  * @param {string} excludeUserId
  * @param {number} [limit]
- * @returns {{ user_id: string, blurb: string }[]}
+ * @returns {{ user_id: string, name: string, blurb: string }[]}
  */
 export function suggestPeers(cohortKey, excludeUserId, limit = 3) {
   if (!cohortKey) return [];
@@ -50,5 +50,5 @@ export function suggestPeers(cohortKey, excludeUserId, limit = 3) {
     .filter((p) => hasConsented(listSlots(p.slack_user_id).consent))
     .sort((a, b) => (b.last_active_at ?? 0) - (a.last_active_at ?? 0))
     .slice(0, limit)
-    .map((p) => ({ user_id: p.slack_user_id, blurb: blurbFor(listSlots(p.slack_user_id)) }));
+    .map((p) => ({ user_id: p.slack_user_id, name: displayName(p), blurb: blurbFor(listSlots(p.slack_user_id)) }));
 }

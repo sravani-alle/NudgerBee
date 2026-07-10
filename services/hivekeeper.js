@@ -21,7 +21,7 @@ function quietFor(sinceSec, nowSec) {
  * @param {{
  *   client: import('@slack/web-api').WebClient,
  *   keeperId: string,
- *   dormant: { userId: string, since: number }[],
+ *   dormant: { userId: string, name?: string, since: number }[],
  *   nowSec: number,
  *   logger?: { warn?: Function },
  * }} args
@@ -34,7 +34,9 @@ export async function sendDormancyDigest({ client, keeperId, dormant, nowSec, lo
     const dmChannel = dm.channel?.id;
     if (!dmChannel) return false;
 
-    const lines = dormant.map((d) => `• <@${d.userId}> — quiet for ${quietFor(d.since, nowSec)}`).join('\n');
+    const lines = dormant
+      .map((d) => `• ${d.name || `<@${d.userId}>`} — quiet for ${quietFor(d.since, nowSec)}`)
+      .join('\n');
     const header =
       dormant.length === 1
         ? '🐝 One of your Hivemates has gone quiet — a gentle hello might help:'

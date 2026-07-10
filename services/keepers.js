@@ -8,7 +8,7 @@
  * safety/stats tools (escalation target + a keeper's hive overview).
  */
 
-import { listActiveHivemates } from '../db/repos/hivemates.js';
+import { displayName, listActiveHivemates } from '../db/repos/hivemates.js';
 import { kvEntriesWithPrefix, kvGet } from '../db/repos/kv.js';
 import { lastActiveAt } from './activity.js';
 
@@ -58,8 +58,8 @@ export function isKeeper(userId) {
  *   cohorts: string[],
  *   total: number,
  *   activeCount: number,
- *   dormant: { userId: string, cohort: string | null, daysQuiet: number }[],
- *   topStreaks: { userId: string, streak: number }[],
+ *   dormant: { userId: string, name: string, cohort: string | null, daysQuiet: number }[],
+ *   topStreaks: { userId: string, name: string, streak: number }[],
  * }}
  */
 export function statsForKeeper(userId, { thresholdDays, nowSec = Math.floor(Date.now() / 1000) } = {}) {
@@ -78,7 +78,7 @@ export function statsForKeeper(userId, { thresholdDays, nowSec = Math.floor(Date
   for (const h of mine) {
     const daysQuiet = Math.floor((nowSec - lastActiveAt(h)) / SECONDS_PER_DAY);
     if (daysQuiet >= threshold) {
-      dormant.push({ userId: h.slack_user_id, cohort: h.cohort_key, daysQuiet });
+      dormant.push({ userId: h.slack_user_id, name: displayName(h), cohort: h.cohort_key, daysQuiet });
     } else {
       activeCount++;
     }
@@ -89,7 +89,7 @@ export function statsForKeeper(userId, { thresholdDays, nowSec = Math.floor(Date
     .filter((h) => (h.honey_streak ?? 0) > 0)
     .sort((a, b) => (b.honey_streak ?? 0) - (a.honey_streak ?? 0))
     .slice(0, 5)
-    .map((h) => ({ userId: h.slack_user_id, streak: h.honey_streak ?? 0 }));
+    .map((h) => ({ userId: h.slack_user_id, name: displayName(h), streak: h.honey_streak ?? 0 }));
 
   return {
     isKeeper: true,

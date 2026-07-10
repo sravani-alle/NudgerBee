@@ -34,6 +34,7 @@ migrate();
 const { recordCheckin } = await import('../db/repos/checkins.js');
 const { kvSet } = await import('../db/repos/kv.js');
 const { logNudge } = await import('../db/repos/nudges.js');
+const { upsertSlot } = await import('../db/repos/slots.js');
 
 const DAY = 86400;
 const now = Math.floor(Date.now() / 1000);
@@ -148,11 +149,20 @@ function seed() {
       slack_user_id: m.userId,
       slack_team_id: TEAM_ID,
       cohort_key: cohortKey,
-      profile_json: JSON.stringify({ ...m.profile, blurb: m.blurb }),
+      // `name` lets keeper digests / suggestions render "Rosa" instead of an
+      // unresolvable <@fake-id> mention (seeded ids aren't real Slack users).
+      profile_json: JSON.stringify({ ...m.profile, name: m.name, blurb: m.blurb }),
       last_active_at: lastActive,
       joined_at: now - 14 * DAY,
       updated_at: now,
     });
+
+    // Write the profile SLOTS too, not just the consolidated JSON. suggestPeers
+    // and the consent gate read hivemate_profile_slots — without these rows the
+    // seeded peers look non-consenting and every peer suggestion comes back empty.
+    for (const [slot, value] of Object.entries(m.profile)) {
+      if (value) upsertSlot(m.userId, slot, value);
+    }
 
     // Build the Honey streak through the real check-in path, one backdated day
     // at a time, so honey_streak/last_checkin_at are computed exactly as prod.
