@@ -1,0 +1,24 @@
+# Render Blueprint — deploys Nudger Bee as a free web service (Socket Mode).
+# The app binds $PORT (health endpoint in app.js) so Render's health check passes;
+# a keep-alive pinger (cron-job.org) hits the URL to prevent the 15-min spin-down.
+# Secrets (sync:false) are entered in the Render dashboard, never committed.
+services:
+  - type: web
+    name: nudger-bee
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start:seeded
+    envVars:
+      - key: LLM_MODEL
+        value: gpt-4o-mini
+      - key: DEMO_KEEPER_ID
+        value: U0B7BGB0MD3
+      - key: DEMO_TEAM_ID
+        value: E0B6ZE4ARMM
+      - key: SLACK_BOT_TOKEN
+        sync: false
+      - key: SLACK_APP_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false

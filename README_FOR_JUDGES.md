@@ -132,6 +132,9 @@ LLM: OpenAI-compatible (gpt-4o-mini for submission; local Ollama for dev)
 
 ## If something misbehaves
 
+- **First message is slow (~1 min):** the bee is hosted on a free tier that
+  sleeps when idle. If your very first message seems ignored, wait ~1 minute and
+  send it again — the host was waking up. It stays responsive after that.
 - **Bee doesn't reply:** make sure you're typing in the **Nudger Bee assistant
   pane** (sidebar), not a random channel. Give it a second — it streams.
 - **No peer suggestion after onboarding:** you may be the first in your cohort
