@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@slack/bolt": "^4.7.2",
+    "@slack/bolt": "^4.7.3",
     "better-sqlite3": "^12.10.0",
     "dotenv": "~17.3.1",
     "franc-min": "^6.2.0",
