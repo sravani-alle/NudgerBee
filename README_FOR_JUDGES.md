@@ -2,7 +2,7 @@
 
 **Slack Agent Builder Challenge · Track: Slack Agent for Good**
 
-> Fill in the bracketed values (`[…]`) with your sandbox specifics before submitting: workspace URL, channel names, and the bee's handle.
+**Sandbox:** https://nudgerbee101.slack.com · **Repo:** https://github.com/sravz3/NudgerBee
 
 ---
 
@@ -30,15 +30,16 @@ Beat 4 below (the `task_update` step).
 
 ## Before you start (host pre-flight — already done for this sandbox)
 
-You (the judge) don't need to run anything. For reference, the workspace was
-prepared with: the bee installed, a `[#hive-landing]` channel, and a small
-pre-seeded demo hive (four Hivemates, one already gone quiet) so the keeper view
-has data. If you're the host reproducing this, that seed is:
-`DEMO_KEEPER_ID=<your-slack-id> node scripts/seed-demo.js`.
+You (the judge) don't need to run anything. The bee is deployed and running 24/7,
+and the workspace is pre-seeded with a small demo hive (four Hivemates, one
+already gone quiet) so the Hive Keeper view has data.
 
-**To talk to the bee:** in the sandbox `[your-workspace-url]`, click **Nudger
-Bee** in the left sidebar (or under Apps). This opens its **assistant pane** —
-that's where you chat with it. Everything below is typed there unless noted.
+**To talk to the bee:** in the sandbox **https://nudgerbee101.slack.com**, click
+**Nudger Bee** in the left sidebar (or under Apps). This opens its **assistant
+pane** — that's where you chat with it. Everything below is typed there.
+
+> Note: the bee runs on a free host that sleeps when idle. If your very first
+> message seems ignored, wait ~1 minute and resend — the host was waking up.
 
 ---
 
@@ -94,15 +95,18 @@ medication question (`should I double my metformin?`): declined + escalated as
 routine.
 
 ### Beat 6 — The Hive Keeper's view 👀 *(silence detection + overview)*
-This is what saves the CHW their week. Two ways to see it:
-- **Live:** ask the bee (as the keeper account `[keeper-handle]`)
-  `how are my Hivemates doing? who's gone quiet?` → it calls `hive_stats` and
-  summarizes: totals, who's **dormant** and for how long, and the top Honey
-  streaks. (Regular Hivemates don't get this tool — it's keeper-only.)
+This is what saves the CHW their week. It's **keeper-gated**, so it's shown from
+the Hive Keeper account (**@Maria (Keeper)**) in the demo video — a regular
+Hivemate account doesn't get these tools. What it does:
+- **Overview:** the keeper asks `how are my Hivemates doing? who's gone quiet?`
+  → the bee calls `hive_stats` and summarizes totals, who's **dormant** and for
+  how long, and the top Honey streaks.
 - **The digest:** the bee's hourly silence scan DMs the keeper a single grouped
   "these people have gone quiet — a gentle hello might help" digest, paging each
-  person only once per quiet spell. (Shown in the demo video; reproducible from
-  the seeded dormant Hivemate.)
+  person only once per quiet spell.
+
+*Want to try the keeper view live? Ask the owner to add your account as a Hive
+Keeper (`app_kv` `default_keeper`) and it works from your account too.*
 
 ---
 
@@ -143,5 +147,6 @@ LLM: OpenAI-compatible (gpt-4o-mini for submission; local Ollama for dev)
 - **A tool step shows an error:** the bee is built to recover — it'll tell you in
   plain language rather than crash.
 
-**Questions / access:** [your-name] — [your-email] · Repo: [repo-url] ·
-Sandbox: [your-workspace-url]
+**Questions / access:** Sravani (Nudger Bee) · Repo:
+https://github.com/sravz3/NudgerBee · Sandbox: https://nudgerbee101.slack.com
+_(add your preferred contact email here before submitting)_
