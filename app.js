@@ -1,10 +1,23 @@
 import 'dotenv/config';
+import { createServer } from 'node:http';
 import { App, LogLevel } from '@slack/bolt';
 import { connectMcp, disconnectMcp } from './agent/mcp-client.js';
 import { migrate } from './db/migrate.js';
 import { kvSet } from './db/repos/kv.js';
 import { registerListeners } from './listeners/index.js';
 import { startSchedulers } from './scheduler/index.js';
+
+// Minimal health endpoint. Socket Mode needs no inbound HTTP, but most hosting
+// platforms (Render, Koyeb, Fly, Cloud Run) require the process to bind $PORT to
+// pass health checks and stay awake. Only starts when PORT is set, so local dev
+// / `slack run` is unaffected. Also serves as a keep-alive target for a free
+// uptime pinger (e.g. cron-job.org) on tiers that sleep on inactivity.
+if (process.env.PORT) {
+  createServer((_req, res) => {
+    res.writeHead(200, { 'content-type': 'text/plain' });
+    res.end('nudger-bee ok 🐝');
+  }).listen(Number(process.env.PORT), () => console.log(`[health] listening on :${process.env.PORT}`));
+}
 
 // Initialize the Bolt app
 const app = new App({
