@@ -1,1 +1,1 @@
-worker: npm run start:seeded
+web: npm run start:seeded
