@@ -56,7 +56,10 @@ export function sanitizeSchema(schema) {
   const defs = root.$defs || root.definitions || {};
 
   const seen = new WeakSet();
-  /** @param {any} node */
+  /**
+   * @param {any} node
+   * @returns {any}
+   */
   const walk = (node) => {
     if (!node || typeof node !== 'object') return node;
     if (Array.isArray(node)) return node.map(walk);

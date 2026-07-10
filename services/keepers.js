@@ -94,7 +94,9 @@ export function statsForKeeper(userId, { thresholdDays, nowSec = Math.floor(Date
   return {
     isKeeper: true,
     scope: isDefault ? 'all' : 'cohorts',
-    cohorts: isDefault ? [...new Set(mine.map((h) => h.cohort_key).filter(Boolean))] : [...owned],
+    cohorts: isDefault
+      ? /** @type {string[]} */ ([...new Set(mine.map((h) => h.cohort_key).filter((c) => c != null))])
+      : [...owned],
     total: mine.length,
     activeCount,
     dormant,

@@ -34,7 +34,7 @@ export async function runSilenceScan({
   const threshold = thresholdDays ?? (Number(kvGet('dormancy_threshold_days')) || 3);
   const client = getClient(provided);
 
-  /** @type {Map<string, { userId: string, since: number }[]>} */
+  /** @type {Map<string, { userId: string, name: string, since: number }[]>} */
   const byKeeper = new Map();
   let flagged = 0;
   let noKeeper = 0;
