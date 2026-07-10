@@ -1,3 +1,4 @@
+import { getMcpTools } from '../agent/mcp-client.js';
 import { buildOnboardingPrompt, REQUIRED_SLOTS } from '../agent/prompts/onboarding.js';
 import { makeCheckinTools } from '../agent/tools/checkin.js';
 import { makeIntroTools } from '../agent/tools/intro.js';
@@ -45,10 +46,11 @@ export function prepareHivemateTurn({ userId, teamId, recentUserTexts, onComplet
   const hivemate = getHivemate(userId);
   if (hivemate?.onboarding_state === 'complete') {
     // Onboarded Hivemates chat with the base persona, plus the check-in tool
-    // ("took my meds 🍯" → streak) and the intro tool (connect me to a peer).
+    // ("took my meds 🍯" → streak), the intro tool (connect me to a peer), and
+    // the MCP program-server tools (upcoming sessions / schedule a follow-up).
     return {
       systemPrompt: undefined,
-      tools: [...makeCheckinTools(userId), ...makeIntroTools(userId, { client })],
+      tools: [...makeCheckinTools(userId), ...makeIntroTools(userId, { client }), ...getMcpTools()],
       isComplete: true,
     };
   }

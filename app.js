@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { App, LogLevel } from '@slack/bolt';
+import { connectMcp, disconnectMcp } from './agent/mcp-client.js';
 import { migrate } from './db/migrate.js';
 import { kvSet } from './db/repos/kv.js';
 import { registerListeners } from './listeners/index.js';
@@ -40,7 +41,19 @@ registerListeners(app);
 
     // Register cron jobs (daily reminders, etc.) now that the client is live.
     startSchedulers({ client: app.client, logger: app.logger });
+
+    // Connect the MCP program server (best-effort; the bee runs without it if
+    // the server can't start). Its tools become available to onboarded DMs.
+    await connectMcp({ logger: app.logger });
   } catch (error) {
     app.logger.error('Failed to start the app', error);
   }
 })();
+
+// Tear down the MCP child process on shutdown.
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, async () => {
+    await disconnectMcp();
+    process.exit(0);
+  });
+}
