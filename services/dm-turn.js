@@ -46,24 +46,33 @@ export function prepareHivemateTurn({ userId, teamId, recentUserTexts, onComplet
   }
 
   // Safety escalation is available on EVERY turn — a clinical concern can surface
-  // mid-onboarding just as easily as after it (keeper tools are keeper-gated).
+  // mid-onboarding just as easily as after it.
   const safetyTools = makeSafetyTools(userId, { client });
+
+  // A Hive Keeper talks to the bee as an admin, not a new member. Route them
+  // straight to keeper mode (base persona + hive overview + scheduling via MCP +
+  // escalation) and SKIP Hivemate onboarding — otherwise a keeper who never
+  // onboarded themselves gets asked onboarding questions and has no hive_stats
+  // tool, so "how many Hivemates?" falls back to a generic non-answer.
+  // makeKeeperTools is itself keeper-gated, so this branch only fires for keepers.
+  const keeperTools = makeKeeperTools(userId);
+  if (keeperTools.length > 0) {
+    return {
+      systemPrompt: undefined,
+      tools: [...getMcpTools(), ...safetyTools, ...keeperTools],
+      isComplete: true,
+    };
+  }
 
   const hivemate = getHivemate(userId);
   if (hivemate?.onboarding_state === 'complete') {
     // Onboarded Hivemates chat with the base persona, plus the check-in tool
     // ("took my meds 🍯" → streak), the intro tool (connect me to a peer), the
-    // MCP program-server tools (upcoming sessions / schedule a follow-up),
-    // escalation, and — for Hive Keepers only — the hive overview.
+    // MCP program-server tools (upcoming sessions / schedule a follow-up), and
+    // escalation.
     return {
       systemPrompt: undefined,
-      tools: [
-        ...makeCheckinTools(userId),
-        ...makeIntroTools(userId, { client }),
-        ...getMcpTools(),
-        ...safetyTools,
-        ...makeKeeperTools(userId),
-      ],
+      tools: [...makeCheckinTools(userId), ...makeIntroTools(userId, { client }), ...getMcpTools(), ...safetyTools],
       isComplete: true,
     };
   }
