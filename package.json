@@ -7,6 +7,7 @@
   "scripts": {
     "check": "npx tsc --checkJs --noEmit --esModuleInterop --target esnext --module nodenext --moduleResolution nodenext app.js",
     "start": "node app.js",
+    "start:seeded": "node scripts/seed-demo.js && node app.js",
     "lint": "npx @biomejs/biome check *.js agent/ listeners/",
     "lint:fix": "npx @biomejs/biome check --write *.js agent/ listeners/"
   },
